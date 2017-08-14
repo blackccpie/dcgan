@@ -6,6 +6,7 @@ keras 2.0.6
 import numpy as np
 import time
 
+from keras import backend as K
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Flatten, Reshape
 from keras.layers import Conv2D, Conv2DTranspose, UpSampling2D
@@ -162,8 +163,15 @@ class FACE_DCGAN(object):
 
         print(self.x_train.shape)
 
-        self.x_train = self.x_train.reshape(-1, self.img_rows,\
-        	self.img_cols, 1).astype(np.float32)
+        # Check Keras backend
+        if(K.image_dim_ordering()=="th"):
+            # Reshape the data to be used by a Theano CNN. Shape is
+            # (nb_of_samples, nb_of_color_channels, img_width, img_heigh)
+            self.x_train = self.x_train.reshape(-1, 1, self.img_rows, self.img_cols).astype(np.float32)
+        else:
+            # Reshape the data to be used by a Tensorflow CNN. Shape is
+            # (nb_of_samples, img_width, img_heigh, nb_of_color_channels)
+            self.x_train = self.x_train.reshape(-1, self.img_rows, self.img_cols, 1).astype(np.float32)
 
         self.DCGAN = DCGAN()
         self.discriminator =  self.DCGAN.discriminator_model()
@@ -186,7 +194,10 @@ class FACE_DCGAN(object):
 
             y = np.ones([batch_size, 1])
             noise = np.random.uniform(-1.0, 1.0, size=[batch_size, 100])
+
+            # launch training on given batch
             a_loss = self.adversarial.train_on_batch(noise, y)
+
             log_mesg = "%d: [D loss: %f, acc: %f]" % (i, d_loss[0], d_loss[1])
             log_mesg = "%s  [A loss: %f, acc: %f]" % (log_mesg, a_loss[0], a_loss[1])
             print(log_mesg)
