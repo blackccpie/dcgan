@@ -14,6 +14,7 @@ from keras.layers import LeakyReLU, Dropout
 from keras.layers import BatchNormalization
 from keras.optimizers import Adam, RMSprop
 from keras.preprocessing.image import img_to_array, load_img, list_pictures
+from keras.preprocessing.image import ImageDataGenerator
 
 import matplotlib.pyplot as plt
 
@@ -183,8 +184,18 @@ class FACE_DCGAN(object):
         if save_interval>0:
             noise_input = np.random.uniform(-1.0, 1.0, size=[16, 100])
         for i in range(train_steps):
-            images_train = self.x_train[np.random.randint(0,
-                self.x_train.shape[0], size=batch_size), :, :, :]
+
+            datagen = ImageDataGenerator(
+                rotation_range=5,
+                width_shift_range=0.05,
+                height_shift_range=0.05,
+                #zoom_range=0.1,
+                horizontal_flip=True)
+
+            X_batch = datagen.flow(self.x_train, batch_size=50000).next() // TODO : size hardcoded
+
+            images_train = X_batch[np.random.randint(0,
+                X_batch.shape[0], size=batch_size), :, :, :]
             noise = np.random.uniform(-1.0, 1.0, size=[batch_size, 100])
             images_fake = self.generator.predict(noise)
             x = np.concatenate((images_train, images_fake))
