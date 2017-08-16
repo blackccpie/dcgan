@@ -19,8 +19,10 @@ from keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
 
 # enable multi-CPU
-import theano
-theano.config.openmp = True
+#import theano
+#theano.config.openmp = True
+
+random_size = 100
 
 class ElapsedTimer(object):
     def __init__(self):
@@ -36,7 +38,7 @@ class ElapsedTimer(object):
         print("Elapsed: %s " % self.elapsed(time.time() - self.start_time) )
 
 class DCGAN(object):
-    def __init__(self, img_rows=28, img_cols=28, channel=1):
+    def __init__(self, img_rows=48, img_cols=48, channel=1):
 
         self.img_rows = img_rows
         self.img_cols = img_cols
@@ -53,8 +55,8 @@ class DCGAN(object):
         self.D = Sequential()
         depth = 64
         dropout = 0.4
-        # In: 28 x 28 x 1, depth = 1
-        # Out: 14 x 14 x 1, depth=64
+        # In: 48 x 48 x 1, depth = 1
+        # Out: 24 x 24 x 1, depth=64
         input_shape = (self.img_rows, self.img_cols, self.channel)
         self.D.add(Conv2D(depth*1, 5, strides=2, input_shape=input_shape,\
             padding='same'))
@@ -86,10 +88,10 @@ class DCGAN(object):
         self.G = Sequential()
         dropout = 0.4
         depth = 64+64+64+64
-        dim = 7
-        # In: 100
+        dim = 12
+        # In: random_size
         # Out: dim x dim x depth
-        self.G.add(Dense(dim*dim*depth, input_dim=100))
+        self.G.add(Dense(dim*dim*depth, input_dim=random_size))
         self.G.add(BatchNormalization(momentum=0.9))
         self.G.add(Activation('relu'))
         self.G.add(Reshape((dim, dim, depth)))
@@ -111,7 +113,7 @@ class DCGAN(object):
         self.G.add(BatchNormalization(momentum=0.9))
         self.G.add(Activation('relu'))
 
-        # Out: 28 x 28 x 1 grayscale image [0.0,1.0] per pix
+        # Out: 50 x 50 x 1 grayscale image [0.0,1.0] per pix
         self.G.add(Conv2DTranspose(1, 5, padding='same'))
         self.G.add(Activation('sigmoid'))
         self.G.summary()
@@ -140,25 +142,13 @@ class DCGAN(object):
 
 class FACE_DCGAN(object):
     def __init__(self):
-        self.img_rows = 28
-        self.img_cols = 28
+        self.img_rows = 48
+        self.img_cols = 48
         self.channel = 1
-
-        # train_datagen = ImageDataGenerator(
-        # rescale=1./255,
-        # shear_range=0.2,
-        # zoom_range=0.2,
-        # horizontal_flip=True)
-        #
-        # self.x_train = train_datagen.flow_from_directory(
-        # 'A',
-        # target_size=(150, 150),
-        # batch_size=32,
-        # class_mode='binary')
 
         X = []
         for picture in list_pictures('A', ext='png'):
-            img = img_to_array(load_img(picture, grayscale=True).resize((28,28)))
+            img = img_to_array(load_img(picture, grayscale=True).resize((48,48)))
             X.append(img)
         self.x_train = np.asarray(X)
 
@@ -182,7 +172,7 @@ class FACE_DCGAN(object):
     def train(self, train_steps=2000, batch_size=256, save_interval=0):
         noise_input = None
         if save_interval>0:
-            noise_input = np.random.uniform(-1.0, 1.0, size=[16, 100])
+            noise_input = np.random.uniform(-1.0, 1.0, size=[16, random_size])
         for i in range(train_steps):
 
             datagen = ImageDataGenerator(
@@ -192,11 +182,11 @@ class FACE_DCGAN(object):
                 #zoom_range=0.1,
                 horizontal_flip=True)
 
-            X_batch = datagen.flow(self.x_train, batch_size=50000).next() // TODO : size hardcoded
+            X_batch = datagen.flow(self.x_train, batch_size=50000).next() # TODO : size hardcoded
 
             images_train = X_batch[np.random.randint(0,
                 X_batch.shape[0], size=batch_size), :, :, :]
-            noise = np.random.uniform(-1.0, 1.0, size=[batch_size, 100])
+            noise = np.random.uniform(-1.0, 1.0, size=[batch_size, random_size])
             images_fake = self.generator.predict(noise)
             x = np.concatenate((images_train, images_fake))
             y = np.ones([2*batch_size, 1])
@@ -204,7 +194,7 @@ class FACE_DCGAN(object):
             d_loss = self.discriminator.train_on_batch(x, y)
 
             y = np.ones([batch_size, 1])
-            noise = np.random.uniform(-1.0, 1.0, size=[batch_size, 100])
+            noise = np.random.uniform(-1.0, 1.0, size=[batch_size, random_size])
 
             # launch training on given batch
             a_loss = self.adversarial.train_on_batch(noise, y)
@@ -221,7 +211,7 @@ class FACE_DCGAN(object):
         filename = 'face.png'
         if fake:
             if noise is None:
-                noise = np.random.uniform(-1.0, 1.0, size=[samples, 100])
+                noise = np.random.uniform(-1.0, 1.0, size=[samples, random_size])
             else:
                 filename = "face_%d.png" % step
             images = self.generator.predict(noise)
