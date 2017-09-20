@@ -177,9 +177,6 @@ class FACE_DCGAN(object):
         self.generator = self.DCGAN.generator()
 
     def train(self, train_steps=2000, batch_size=256, save_interval=0):
-        noise_input = None
-        if save_interval>0:
-            noise_input = np.random.uniform(-1.0, 1.0, size=[16, random_size])
 
         N = 50
         X_batch = []
@@ -210,27 +207,30 @@ class FACE_DCGAN(object):
             log_mesg = "%d: [D loss: %f, acc: %f]" % (i, d_loss[0], d_loss[1])
             log_mesg = "%s  [A loss: %f, acc: %f]" % (log_mesg, a_loss[0], a_loss[1])
             print(log_mesg)
+
             if save_interval>0:
                 if (i+1)%save_interval==0:
-                    self.plot_images(save2file=True, samples=noise_input.shape[0],\
-                        noise=noise_input, step=(i+1))
+                    noise_input = np.random.uniform(-1.0, 1.0, size=[16, random_size])
+                    self.plot_images(save2file=True, step=(i+1))
 
     def save_gen_image(self):
         noise = np.random.uniform(-1.0, 1.0, size=[1, random_size])
         img = array_to_img( self.generator.predict(noise).reshape(48,48,1) )
         img.save('test_gen.png')
 
-    def plot_images(self, save2file=False, fake=True, samples=16, noise=None, step=0):
-        filename = 'face.png'
+    def plot_images(self, save2file=False, fake=True, step=0):
+        filename = 'undefined.png'
         if fake:
-            if noise is None:
-                noise = np.random.uniform(-1.0, 1.0, size=[samples, random_size])
-            else:
-                filename = "face_%d.png" % step
+            noise = np.random.uniform(-1.0, 1.0, size=[16, random_size])
             images = self.generator.predict(noise)
+            if step == 0:
+                filename = "face_noise_final.png"
+            else:
+                filename = "face_noise_step%d.png" % step
         else:
-            i = np.random.randint(0, self.x_train.shape[0], samples)
+            i = np.random.randint(0, self.x_train.shape[0], 16)
             images = self.x_train[i, :, :, :]
+            filename = "face_true.png"
 
         plt.figure(figsize=(10,10))
         for i in range(images.shape[0]):
@@ -240,11 +240,12 @@ class FACE_DCGAN(object):
             plt.imshow(image, cmap='gray')
             plt.axis('off')
         plt.tight_layout()
+
         if save2file:
             plt.savefig(filename)
             plt.close('all')
-        else:
-            plt.show()
+
+        plt.show()
 
 if __name__ == '__main__':
     face_dcgan = FACE_DCGAN()
@@ -252,6 +253,6 @@ if __name__ == '__main__':
     #face_dcgan.train(train_steps=10000, batch_size=256, save_interval=500)
     face_dcgan.train(train_steps=500, batch_size=256, save_interval=500)
     timer.elapsed_time()
-    face_dcgan.save_gen_image()
-    face_dcgan.plot_images(fake=True)
-    face_dcgan.plot_images(fake=False, save2file=True)
+    face_dcgan.save_gen_image() # save single generated image
+    face_dcgan.plot_images(fake=True, save2file=True) # save gallery of generated images
+    face_dcgan.plot_images(fake=False, save2file=True) # save gallery of real training images
