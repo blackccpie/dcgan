@@ -13,7 +13,7 @@ from keras.layers import Conv2D, Conv2DTranspose, UpSampling2D
 from keras.layers import LeakyReLU, Dropout
 from keras.layers import BatchNormalization
 from keras.optimizers import Adam, RMSprop
-from keras.preprocessing.image import img_to_array, load_img, list_pictures
+from keras.preprocessing.image import img_to_array, array_to_img, load_img, list_pictures
 from keras.preprocessing.image import ImageDataGenerator
 
 import matplotlib.pyplot as plt
@@ -145,6 +145,13 @@ class FACE_DCGAN(object):
         self.img_rows = 48
         self.img_cols = 48
         self.channel = 1
+        self.datagen = ImageDataGenerator(
+			rotation_range=10,
+			width_shift_range=0.1,
+			height_shift_range=0.1,
+			zoom_range=0.1,
+			rescale=1./255.,
+			horizontal_flip=True)
 
         X = []
         for picture in list_pictures('A', ext='png'):
@@ -174,18 +181,10 @@ class FACE_DCGAN(object):
         if save_interval>0:
             noise_input = np.random.uniform(-1.0, 1.0, size=[16, random_size])
 
-        datagen = ImageDataGenerator(
-			rotation_range=10,
-			width_shift_range=0.1,
-			height_shift_range=0.1,
-			zoom_range=0.1,
-			rescale=1./255.,
-			horizontal_flip=True)
-
         N = 50
         X_batch = []
         for i in range(N):
-            X_batch.append( datagen.flow(self.x_train, batch_size=1000).next() ) # TODO : size hardcoded
+            X_batch.append( self.datagen.flow(self.x_train, batch_size=1000).next() ) # TODO : size hardcoded
         X_batch = np.array(X_batch).reshape(N*1000,48,48,1)
         print(X_batch.shape)
         #plt.imshow(X_batch[25000,:,:,0], cmap='gray')
@@ -215,6 +214,11 @@ class FACE_DCGAN(object):
                 if (i+1)%save_interval==0:
                     self.plot_images(save2file=True, samples=noise_input.shape[0],\
                         noise=noise_input, step=(i+1))
+
+    def save_gen_image(self):
+        noise = np.random.uniform(-1.0, 1.0, size=[1, random_size])
+        img = array_to_img( self.generator.predict(noise).reshape(48,48,1) )
+        img.save('test_gen.png')
 
     def plot_images(self, save2file=False, fake=True, samples=16, noise=None, step=0):
         filename = 'face.png'
@@ -248,5 +252,6 @@ if __name__ == '__main__':
     #face_dcgan.train(train_steps=10000, batch_size=256, save_interval=500)
     face_dcgan.train(train_steps=500, batch_size=256, save_interval=500)
     timer.elapsed_time()
+    face_dcgan.save_gen_image()
     face_dcgan.plot_images(fake=True)
     face_dcgan.plot_images(fake=False, save2file=True)
