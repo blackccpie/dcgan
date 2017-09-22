@@ -18,6 +18,8 @@ from keras.preprocessing.image import ImageDataGenerator
 
 import matplotlib.pyplot as plt
 
+from PIL import Image
+
 # enable multi-CPU
 #import theano
 #theano.config.openmp = True
@@ -53,7 +55,7 @@ class DCGAN(object):
         if self.D:
             return self.D
         self.D = Sequential()
-        depth = 64
+        depth = 64#128
         dropout = 0.4
         # In: 48 x 48 x 1, depth = 1
         # Out: 24 x 24 x 1, depth=64
@@ -87,7 +89,7 @@ class DCGAN(object):
             return self.G
         self.G = Sequential()
         dropout = 0.4
-        depth = 64+64+64+64
+        depth = 64+64+64+64#+64
         dim = 12
         # In: random_size
         # Out: dim x dim x depth
@@ -155,7 +157,7 @@ class FACE_DCGAN(object):
 
         X = []
         for picture in list_pictures('A', ext='png'):
-            img = img_to_array(load_img(picture, grayscale=True).resize((48,48)))
+            img = img_to_array(load_img(picture, grayscale=True).resize((self.img_rows,self.img_cols)))
             X.append(img)
         self.x_train = np.asarray(X)
 
@@ -176,16 +178,19 @@ class FACE_DCGAN(object):
         self.adversarial = self.DCGAN.adversarial_model()
         self.generator = self.DCGAN.generator()
 
-    def train(self, train_steps=2000, batch_size=256, save_interval=0):
+    def train(self, train_steps, batch_size=256, save_interval=0):
 
         N = 50
         X_batch = []
         for i in range(N):
             X_batch.append( self.datagen.flow(self.x_train, batch_size=1000).next() ) # TODO : size hardcoded
-        X_batch = np.array(X_batch).reshape(N*1000,48,48,1)
+        X_batch = np.array(X_batch).reshape(N*1000,self.img_rows,self.img_cols,1)
         print(X_batch.shape)
+
         #plt.imshow(X_batch[25000,:,:,0], cmap='gray')
         #plt.show()
+        #im = Image.fromarray(X_batch[25000,:,:,0])
+        #im.save("test_input.tiff")
 
         for i in range(train_steps):
 
@@ -215,22 +220,22 @@ class FACE_DCGAN(object):
 
     def save_gen_image(self):
         noise = np.random.uniform(-1.0, 1.0, size=[1, random_size])
-        img = array_to_img( self.generator.predict(noise).reshape(48,48,1) )
-        img.save('test_gen.png')
+        img = Image.fromarray(self.generator.predict(noise).reshape(self.img_rows,self.img_cols))
+        img.save("test_gen.tiff")
 
     def plot_images(self, save2file=False, fake=True, step=0):
-        filename = 'undefined.png'
+        mosaic_filename = 'undefined.png'
         if fake:
             noise = np.random.uniform(-1.0, 1.0, size=[16, random_size])
             images = self.generator.predict(noise)
             if step == 0:
-                filename = "face_noise_final.png"
+                mosaic_filename = "face_noise_final.png"
             else:
-                filename = "face_noise_step%d.png" % step
+                mosaic_filename = "face_noise_step%d.png" % step
         else:
             i = np.random.randint(0, self.x_train.shape[0], 16)
             images = self.x_train[i, :, :, :]
-            filename = "face_true.png"
+            mosaic_filename = "face_true.png"
 
         plt.figure(figsize=(10,10))
         for i in range(images.shape[0]):
@@ -242,7 +247,12 @@ class FACE_DCGAN(object):
         plt.tight_layout()
 
         if save2file:
-            plt.savefig(filename)
+			# save single file
+            if step != 0:
+                img = Image.fromarray(images[0].reshape(self.img_rows,self.img_cols))
+                img.save("test_step%d.tiff" % step)
+			# save mosaic
+            plt.savefig(mosaic_filename)
             plt.close('all')
 
         plt.show()
@@ -251,7 +261,7 @@ if __name__ == '__main__':
     face_dcgan = FACE_DCGAN()
     timer = ElapsedTimer()
     #face_dcgan.train(train_steps=10000, batch_size=256, save_interval=500)
-    face_dcgan.train(train_steps=500, batch_size=256, save_interval=500)
+    face_dcgan.train(train_steps=30, batch_size=256, save_interval=5)
     timer.elapsed_time()
     face_dcgan.save_gen_image() # save single generated image
     face_dcgan.plot_images(fake=True, save2file=True) # save gallery of generated images
